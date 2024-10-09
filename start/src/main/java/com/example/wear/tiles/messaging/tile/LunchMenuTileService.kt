@@ -20,8 +20,6 @@ import androidx.wear.protolayout.ResourceBuilders
 import androidx.wear.tiles.RequestBuilders.ResourcesRequest
 import androidx.wear.tiles.RequestBuilders.TileRequest
 import androidx.wear.tiles.TileBuilders.Tile
-import coil.imageLoader
-import com.example.wear.tiles.messaging.MessagingRepo
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.tiles.SuspendingTileService
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,20 +28,26 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import com.example.wear.tiles.lunch.LunchMenuRepo
+import com.example.wear.tiles.lunch.MenuItem
+import android.util.Log
 
 @OptIn(ExperimentalHorologistApi::class)
-class MessagingTileService : SuspendingTileService() {
+class LunchMenuTileService : SuspendingTileService() {
 
-    private lateinit var repo: MessagingRepo
-    private lateinit var renderer: MessagingTileRenderer
-    private lateinit var tileStateFlow: StateFlow<MessagingTileState?>
+    private lateinit var repo: LunchMenuRepo
+    private lateinit var renderer: LunchMenuTileRenderer
+    
+    private lateinit var tileStateFlow: StateFlow<LunchMenuTileState?>
+
 
     override fun onCreate() {
+        Log.d("MessagingTileService", "onCreate: Initializing service")
         super.onCreate()
-        repo = MessagingRepo(this)
-        renderer = MessagingTileRenderer(this)
-        tileStateFlow = repo.getFavoriteContacts()
-            .map { contacts -> MessagingTileState(contacts) }
+        repo = LunchMenuRepo(this)
+        renderer = LunchMenuTileRenderer(this)
+        tileStateFlow = repo.getLunchMenus()
+            .map { menus -> LunchMenuTileState(getTodayMenu(menus)) }
             .stateIn(
                 lifecycleScope,
                 started = SharingStarted.WhileSubscribed(5000),
@@ -52,46 +56,42 @@ class MessagingTileService : SuspendingTileService() {
     }
 
     override suspend fun tileRequest(requestParams: TileRequest): Tile {
+        Log.d("MessagingTileService", "tileRequest: Processing tile request")
         val tileState = latestTileState()
         return renderer.renderTimeline(tileState, requestParams)
     }
 
-    /**
-     * Reads the latest state from the flow, and updates the data if there isn't any.
-     */
-    private suspend fun latestTileState(): MessagingTileState {
+    private suspend fun latestTileState(): LunchMenuTileState {
+        Log.d("MessagingTileService", "latestTileState: Fetching latest tile state")
         var tileState = tileStateFlow.filterNotNull().first()
 
-        // see `refreshData()` docs for more information
-        if (tileState.contacts.isEmpty()) {
+        if (tileState.todayMenu.isEmpty()) {
+            Log.d("MessagingTileService", "latestTileState: Today's menu is empty, refreshing data")
             refreshData()
             tileState = tileStateFlow.filterNotNull().first()
         }
         return tileState
     }
 
-    /**
-     * If our data source (the repository) is empty/has stale data, this is where we could perform
-     * an update. For this sample, we're updating the repository with fake data
-     * ([MessagingRepo.knownContacts]).
-     *
-     * In a more complete example, tiles, complications and the main app would
-     * share a common data source so it's less likely that an initial data refresh triggered by the
-     * tile would be necessary.
-     */
     private suspend fun refreshData() {
-        repo.updateContacts(MessagingRepo.knownContacts)
+        Log.d("MessagingTileService", "refreshData: Updating lunch menus with sample data")
+        repo.updateLunchMenus(LunchMenuRepo.sampleLunchMenus)
     }
 
+    private fun getTodayMenu(menus: Map<String, List<MenuItem>>): List<MenuItem> {
+        Log.d("MessagingTileService", "getTodayMenu: Fetching menu for today")
+        val today = java.time.LocalDate.now().dayOfWeek.name.lowercase()
+        return menus[today] ?: emptyList()
+    }
+
+
     override suspend fun resourcesRequest(requestParams: ResourcesRequest): ResourceBuilders.Resources {
-        // Since we know there's only 2 very small avatars, we'll fetch them
-        // as part of this resource request.
-        val avatars = imageLoader.fetchAvatarsFromNetwork(
-            context = this@MessagingTileService,
-            requestParams = requestParams,
-            tileState = latestTileState()
-        )
-        // then pass the bitmaps to the renderer to transform them to ImageResources
-        return renderer.produceRequestedResources(avatars, requestParams)
+        Log.d("MessagingTileService", "resourcesRequest: Processing resources request")
+        // We don't need a specific resource state for the lunch menu, so we pass Unit
+        return renderer.produceRequestedResources(
+            Unit,requestParams
+        ).also {
+            Log.d("LunchMenuTileService", "resourcesRequest: Resources produced")
+        }
     }
 }

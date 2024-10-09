@@ -13,7 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Tiles Code Lab"
+rootProject.name = "Blanko Lunch Menu"
 
 include(":start")
-include(":finished")

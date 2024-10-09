@@ -30,11 +30,11 @@
             android:value="true" />
 
         <service
-            android:name="com.example.wear.tiles.messaging.tile.MessagingTileService"
+            android:name="com.example.wear.tiles.messaging.tile.LunchMenuTileService"
             android:description="@string/tile_description"
             android:exported="true"
             android:icon="@drawable/ic_message_24"
-            android:label="@string/tile_label"
+            android:label="Today's Lunch Menu in Blanko"
             android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
